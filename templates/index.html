@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат с темами</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="chat-container" id="chatContainer">
+        <h1>💬 Чат с переключением тем</h1>
+
+        <!-- Кнопки выбора темы -->
+        <div class="theme-selector">
+            <button class="theme-btn default" onclick="changeTheme('default')">Стандартная</button>
+            <button class="theme-btn ocean" onclick="changeTheme('ocean')">Морская</button>
+            <button class="theme-btn sunset" onclick="changeTheme('sunset')">Закат</button>
+            <button class="theme-btn night" onclick="changeTheme('night')">Ночная</button>
+        </div>
+
+        <div id="chat"></div>
+
+        <div class="input-area">
+            <input type="text" id="username" placeholder="Ваше имя" value="User" maxlength="50">
+            <input type="text" id="message" placeholder="Введите сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()">Отправить</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentUser = '';
+
+        // Функция смены темы
+        function changeTheme(theme) {
+            const container = document.getElementById('chatContainer');
+            // Удаляем все классы тем
+            container.classList.remove('theme-ocean', 'theme-sunset', 'theme-night');
+            // Добавляем выбранную тему
+            if (theme !== 'default') {
+                container.classList.add(`theme-${theme}`);
+            }
+            // Сохраняем выбор в localStorage
+            localStorage.setItem('chatTheme', theme);
+        }
+
+        // Загружаем сохраненную тему
+        const savedTheme = localStorage.getItem('chatTheme');
+        if (savedTheme) {
+            changeTheme(savedTheme);
+        }
+
+        socket.on('connect', function() {
+            console.log('✅ Подключено к серверу');
+            addSystemMessage('Подключено к серверу');
+        });
+
+        socket.on('disconnect', function() {
+            console.log('❌ Отключено от сервера');
+            addSystemMessage('Отключено от сервера');
+        });
+
+        function sendMessage() {
+            const usernameInput = document.getElementById('username');
+            const messageInput = document.getElementById('message');
+
+            const username = usernameInput.value.trim();
+            const message = messageInput.value.trim();
+
+            if (!username) {
+                alert('Введите имя!');
+                usernameInput.focus();
+                return;
+            }
+
+            if (!message) {
+                alert('Введите сообщение!');
+                messageInput.focus();
+                return;
+            }
+
+            currentUser = username;
+
+            socket.emit('send_message', {
+                username: username,
+                message: message
+            });
+
+            messageInput.value = '';
+        }
+
+        socket.on('receive_message', function(data) {
+            const chat = document.getElementById('chat');
+            const messageDiv = document.createElement('div');
+
+            const time = new Date().toLocaleTimeString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            if (data.username === currentUser) {
+                messageDiv.className = 'message own';
+            } else {
+                messageDiv.className = 'message other';
+            }
+
+            messageDiv.innerHTML = `
+                <div class="username">
+                    ${data.username}
+                    <span class="time">${time}</span>
+                </div>
+                <div>${data.message}</div>
+            `;
+
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
+        });
+
+        function addSystemMessage(text) {
+            const chat = document.getElementById('chat');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message system';
+            messageDiv.textContent = text;
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат с комнатами</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Шапка -->
+        <div class="header">
+            <div class="user-info">
+                <div class="user-avatar">
+                    {{ username[0]|upper if username else '?' }}
+                </div>
+                <span class="username">{{ username }}</span>
+            </div>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Выйти</a>
+        </div>
+
+        <!-- Вкладки -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('chat', this)">💬 Чат</div>
+            <div class="tab" onclick="switchTab('users', this)">👥 Участники</div>
+            <div class="tab" onclick="switchTab('settings', this)">⚙️ Настройки</div>
+            <div class="tab" onclick="switchTab('stats', this)">📊 Статистика</div>
+        </div>
+
+        <!-- Вкладка ЧАТ -->
+        <div id="tab-chat" class="tab-content active">
+            <div class="chat-layout">
+                <!-- Левая панель - список чатов -->
+                <div class="rooms-sidebar">
+                    <div class="rooms-sidebar-title">
+                        <span>📋 Все чаты</span>
+                        <button class="add-room-btn" onclick="openCreateRoomModal()" title="Создать новый чат">➕</button>
+                    </div>
+                    <div id="rooms-list">
+                        <!-- Список комнат будет загружен через JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Средняя панель - активный чат -->
+                <div class="active-chat-panel" id="active-chat-panel">
+                    <!-- Контент будет загружен через JavaScript -->
+                </div>
+
+                <!-- Правая панель - участники -->
+                <div class="users-sidebar">
+                    <div class="users-sidebar-title">
+                        <span>👥 Участники</span>
+                        <span class="online-count" id="online-count">0</span>
+                    </div>
+                    <div id="room-users-list">
+                        <!-- Список участников будет добавлен через JavaScript -->
+                    </div>
+
+                    <div class="activity-section">
+                        <div class="activity-title">⏱️ Активность</div>
+                        <div id="activity-counters">
+                            <!-- Счетчики времени будут здесь -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка УЧАСТНИКИ -->
+        <div id="tab-users" class="tab-content">
+            <div class="users-container">
+                <h2 class="settings-title">👥 Все участники</h2>
+                <div class="users-grid" id="users-grid">
+                    <!-- Список всех пользователей -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка НАСТРОЙКИ -->
+        <div id="tab-settings" class="tab-content">
+            <div class="settings-container">
+                <h2 class="settings-title">⚙️ Настройки</h2>
+
+                <div class="settings-section">
+                    <h3>🎨 Тема оформления</h3>
+                    <div class="theme-grid">
+                        <div class="theme-option" data-theme="default" onclick="selectTheme('default')">
+                            <div class="theme-preview default"></div>
+                            <div class="theme-name">Стандартная</div>
+                        </div>
+                        <div class="theme-option" data-theme="ocean" onclick="selectTheme('ocean')">
+                            <div class="theme-preview ocean"></div>
+                            <div class="theme-name">Морская</div>
+                        </div>
+                        <div class="theme-option" data-theme="sunset" onclick="selectTheme('sunset')">
+                            <div class="theme-preview sunset"></div>
+                            <div class="theme-name">Закат</div>
+                        </div>
+                        <div class="theme-option" data-theme="night" onclick="selectTheme('night')">
+                            <div class="theme-preview night"></div>
+                            <div class="theme-name">Ночная</div>
+                        </div>
+                        <div class="theme-option" data-theme="dark" onclick="selectTheme('dark')">
+                            <div class="theme-preview dark"></div>
+                            <div class="theme-name">Темная</div>
+                        </div>
+                        <div class="theme-option" data-theme="neon" onclick="selectTheme('neon')">
+                            <div class="theme-preview neon"></div>
+                            <div class="theme-name">Неон</div>
+                        </div>
+                        <div class="theme-option" data-theme="liquid-glass" onclick="selectTheme('liquid-glass')">
+                            <div class="theme-preview liquid-glass"></div>
+                            <div class="theme-name">Liquid Glass</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>🔔 Уведомления</h3>
+                    <div class="setting-item">
+                        <span class="setting-label">Звуковые уведомления</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="sound-notifications" onchange="toggleSetting('sound', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Уведомления о сообщениях</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="message-notifications" checked onchange="toggleSetting('notifications', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>💬 Отображение</h3>
+                    <div class="setting-item">
+                        <span class="setting-label">Анимация сообщений</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="message-animation" checked onchange="toggleSetting('animation', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">Показывать счетчики времени</span>
+                        <label class="toggle">
+                            <input type="checkbox" id="show-time-counters" checked onchange="toggleSetting('timeCounters', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка СТАТИСТИКА -->
+        <div id="tab-stats" class="tab-content">
+            <div class="stats-container">
+                <h2 class="settings-title">📊 Статистика</h2>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-users">0</div>
+                        <div class="stat-label">Всего пользователей</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="online-users">0</div>
+                        <div class="stat-label">Сейчас онлайн</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-messages">0</div>
+                        <div class="stat-label">Всего сообщений</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="active-rooms">0</div>
+                        <div class="stat-label">Активных комнат</div>
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 15px;">📝 Последние сообщения</h3>
+                <div class="messages-list" id="recent-messages"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания чата -->
+    <div id="create-room-modal" class="modal">
+        <div class="modal-content">
+            <h3>✨ Создать новый чат</h3>
+            <input type="text" id="new-room-name" placeholder="Название чата" class="modal-input">
+            <input type="text" id="new-room-emoji" placeholder="Эмодзи (например: 💬)" class="modal-input">
+            <input type="text" id="new-room-topic" placeholder="Тема чата" class="modal-input">
+            <textarea id="new-room-description" placeholder="Описание чата" class="modal-input" rows="3"></textarea>
+            <div class="modal-buttons">
+                <button onclick="createNewRoom()" class="btn-primary">Создать</button>
+                <button onclick="closeCreateRoomModal()" class="btn-secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно редактирования чата -->
+    <div id="edit-room-modal" class="modal">
+        <div class="modal-content">
+            <h3>✏️ Редактировать чат</h3>
+            <input type="text" id="edit-room-name" placeholder="Название чата" class="modal-input">
+            <input type="text" id="edit-room-emoji" placeholder="Эмодзи" class="modal-input">
+            <input type="text" id="edit-room-topic" placeholder="Тема чата" class="modal-input">
+            <textarea id="edit-room-description" placeholder="Описание чата" class="modal-input" rows="3"></textarea>
+            <div class="modal-buttons">
+                <button onclick="saveRoomChanges()" class="btn-primary">Сохранить</button>
+                <button onclick="deleteRoom()" class="btn-danger">Удалить</button>
+                <button onclick="closeEditRoomModal()" class="btn-secondary">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Палитра реакций -->
+    <div id="reaction-picker" class="reaction-picker" style="display: none;">
+        <div class="reaction-picker-content">
+            <button class="reaction-option" onclick="addReaction('👍')">👍</button>
+            <button class="reaction-option" onclick="addReaction('❤️')">❤️</button>
+            <button class="reaction-option" onclick="addReaction('😂')">😂</button>
+            <button class="reaction-option" onclick="addReaction('😮')">😮</button>
+            <button class="reaction-option" onclick="addReaction('😢')">😢</button>
+            <button class="reaction-option" onclick="addReaction('👎')">👎</button>
+        </div>
+    </div>
+
+    <script>
+        console.log("🚀 Скрипт загружается...");
+
+        const socket = io();
+        const username = '{{ username }}';
+        let currentRoom = '{{ active_room }}';
+        let rooms = {};
+        let onlineUsers = {};
+        let roomTopics = {};
+        let currentMessageForReaction = null;
+        let timeCounterIntervals = {};
+
+        console.log("👤 Пользователь:", username);
+        console.log("🏠 Текущая комната:", currentRoom);
+
+        // Загружаем комнаты с сервера
+        {% for room in rooms %}
+            rooms['{{ room.name }}'] = {
+                name: '{{ room.name }}',
+                displayName: '{{ room.display_name or room.name|capitalize }}',
+                emoji: '{{ room.emoji }}',
+                description: '{{ room.description }}',
+                topic: '{{ room.topic }}',
+                users: {{ room_users.get(room.name, 0) }},
+                messages: [
+                    {% for msg in room_messages.get(room.name, []) %}
+                    {
+                        id: {{ msg.id }},
+                        username: '{{ msg.username }}',
+                        message: '{{ msg.text|safe }}',
+                        time: '{{ msg.timestamp.strftime("%H:%M") }}',
+                        message_type: '{{ msg.message_type or "text" }}',
+                        file_name: '{{ msg.file_name or "" }}',
+                        file_path: '{{ msg.file_path or "" }}',
+                        file_size: {{ msg.file_size or 0 }},
+                        file_ext: '{{ msg.file_type or "" }}',
+                        reactions: {
+                            {% for reaction in msg.reactions_list %}
+                                '{{ reaction.emoji }}': {{ reaction.username|tojson }},
+                            {% endfor %}
+                        }
+                    },
+                    {% endfor %}
+                ],
+                unread: 0
+            };
+            roomTopics['{{ room.name }}'] = '{{ room.topic }}';
+        {% endfor %}
+
+        console.log("✅ Комнаты загружены:", Object.keys(rooms));
+
+        // Функция переключения вкладок
+        function switchTab(tabName, element) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            element.classList.add('active');
+
+            if (tabName === 'stats') {
+                updateStats();
+            } else if (tabName === 'users') {
+                loadAllUsers();
+            }
+        }
+
+        // Функция выбора темы
+        function selectTheme(theme) {
+            console.log("🎨 Выбрана тема:", theme);
+
+            const themeClasses = ['default', 'ocean', 'sunset', 'night', 'dark', 'neon', 'liquid-glass'];
+            document.body.classList.remove(...themeClasses.map(t => `theme-${t}`));
+
+            document.body.classList.add(`theme-${theme}`);
+            localStorage.setItem('chatTheme', theme);
+
+            document.querySelectorAll('.theme-option').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            document.querySelector(`.theme-option[data-theme="${theme}"]`)?.classList.add('active');
+        }
+
+        // Загружаем сохраненную тему
+        const savedTheme = localStorage.getItem('chatTheme');
+        if (savedTheme) {
+            selectTheme(savedTheme);
+        } else {
+            selectTheme('default');
+        }
+
+        // Функция обновления списка комнат
+        function updateRoomsList() {
+            const roomsList = document.getElementById('rooms-list');
+            if (!roomsList) return;
+
+            if (Object.keys(rooms).length === 0) {
+                roomsList.innerHTML = `
+                    <div class="no-rooms-message">
+                        <div class="no-rooms-icon">🏠</div>
+                        <div class="no-rooms-text">Нет доступных чатов</div>
+                        <div class="no-rooms-hint">Создайте свой первый чат!</div>
+                        <button class="create-first-room-btn" onclick="openCreateRoomModal()">
+                            ➕ Создать чат
+                        </button>
+                    </div>
+                `;
+
+                const activeChatPanel = document.getElementById('active-chat-panel');
+                if (activeChatPanel) {
+                    activeChatPanel.innerHTML = `
+                        <div class="welcome-screen">
+                            <div class="welcome-icon">👋</div>
+                            <div class="welcome-title">Добро пожаловать!</div>
+                            <div class="welcome-text">Здесь пока нет ни одного чата.</div>
+                            <div class="welcome-text">Создайте свой первый чат, чтобы начать общение.</div>
+                            <button class="welcome-create-btn" onclick="openCreateRoomModal()">
+                                ➕ Создать первый чат
+                            </button>
+                        </div>
+                    `;
+                }
+            } else {
+                let html = '';
+                Object.values(rooms).forEach(room => {
+                    html += `
+                        <div class="sidebar-room-item" onclick="switchRoom('${room.name}')" data-room="${room.name}">
+                            <span class="sidebar-room-emoji">${room.emoji}</span>
+                            <div class="sidebar-room-info">
+                                <div class="sidebar-room-name">
+                                    ${room.displayName}
+                                    <span class="online-indicator-small" id="${room.name}-online-small" style="display: ${room.users > 0 ? 'inline-block' : 'none'};"></span>
+                                </div>
+                                <div class="sidebar-room-preview" id="${room.name}-preview">
+                                    ${room.messages.length > 0 ?
+                                        `${room.messages[room.messages.length-1].username}: ${room.messages[room.messages.length-1].message.substring(0, 30)}...` :
+                                        'Нет сообщений'}
+                                </div>
+                                <div class="sidebar-room-stats">
+                                    <span>👥 <span id="${room.name}-small-count">${room.users}</span></span>
+                                    <span class="room-badge-small" id="${room.name}-small-badge" style="display: ${room.unread > 0 ? 'inline' : 'none'};">${room.unread}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                roomsList.innerHTML = html;
+            }
+        }
+
+        // Функция переключения комнаты
+        function switchRoom(room) {
+            if (!room || !rooms[room]) {
+                console.log("⚠️ Комната не существует:", room);
+                return;
+            }
+
+            console.log(`🔄 Переключение в ${room}`);
+
+            if (room === currentRoom) return;
+
+            socket.emit('switch_room', {
+                old_room: currentRoom,
+                new_room: room
+            });
+
+            currentRoom = room;
+
+            if (rooms[room]) {
+                rooms[room].unread = 0;
+            }
+
+            loadRoomMessages(room);
+
+            document.querySelectorAll('.sidebar-room-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            const activeItem = document.querySelector(`.sidebar-room-item[data-room="${room}"]`);
+            if (activeItem) activeItem.classList.add('active');
+
+            updateUI();
+            updateRoomUsers();
+            updateTopicDisplay();
+        }
+
+        // Функция загрузки сообщений комнаты
+        function loadRoomMessages(room) {
+            const activeChatPanel = document.getElementById('active-chat-panel');
+            if (!activeChatPanel) return;
+
+            const roomData = rooms[room];
+            if (!roomData) return;
+
+            let messagesHtml = `
+                <div class="chat-header" id="chat-header">
+                    <div class="chat-title">
+                        <span class="chat-emoji">${roomData.emoji}</span>
+                        <span class="chat-name">${roomData.displayName}</span>
+                        ${roomData.topic ? `<span class="chat-topic">${roomData.topic}</span>` : ''}
+                    </div>
+                    <div class="chat-header-actions">
+                        <div class="chat-users-count" id="current-chat-users">👥 ${roomData.users}</div>
+                        <button class="edit-room-btn" onclick="showEditRoomModal()" title="Редактировать чат">✏️</button>
+                    </div>
+                </div>
+
+                <div class="room-topic" id="room-topic-display" style="display: ${roomData.topic ? 'block' : 'none'};">
+                    <span id="topic-text">${roomData.topic || ''}</span>
+                </div>
+
+                <div class="messages-area" id="chat-messages"></div>
+
+                <div class="typing-indicator" id="typing-users"></div>
+
+                <div class="input-area">
+                    <textarea class="message-input" id="message-input"
+                              placeholder="Введите сообщение... (Enter - отправить, Shift+Enter - новая строка)"
+                              rows="1" autocomplete="off"></textarea>
+                    <input type="file" id="file-input" style="display: none;" onchange="uploadFile()">
+                    <button class="file-btn" onclick="document.getElementById('file-input').click()" title="Прикрепить файл">📎</button>
+                    <button class="send-btn" onclick="sendMessage()">Отправить</button>
+                </div>
+                <div class="input-hint">⏎ Enter - отправить | ⇧+⏎ Shift+Enter - новая строка</div>
+            `;
+
+            activeChatPanel.innerHTML = messagesHtml;
+
+            const messagesDiv = document.getElementById('chat-messages');
+            if (roomData.messages.length > 0) {
+                roomData.messages.forEach(msg => {
+                    addMessageToChat(msg, room);
+                });
+            } else {
+                const welcomeMsg = {
+                    id: 'welcome-' + Date.now(),
+                    username: 'Система',
+                    message: 'Добро пожаловать в чат!',
+                    time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                };
+                addMessageToChat(welcomeMsg, room);
+            }
+
+            // Добавляем обработчик для textarea
+            setupMessageInput();
+        }
+
+        // Настройка поля ввода
+        function setupMessageInput() {
+            const messageInput = document.getElementById('message-input');
+            if (!messageInput) return;
+
+            let typingTimer;
+
+            // Автоматическое изменение высоты
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+
+                // Индикатор печатания
+                if (this.value.trim()) {
+                    socket.emit('typing', { room: currentRoom });
+                    clearTimeout(typingTimer);
+                    typingTimer = setTimeout(() => {
+                        socket.emit('stop_typing', { room: currentRoom });
+                    }, 1000);
+                } else {
+                    socket.emit('stop_typing', { room: currentRoom });
+                }
+            });
+
+            // Обработка клавиш
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    if (e.shiftKey) {
+                        // Shift+Enter - новая строка
+                        return;
+                    } else {
+                        // Enter - отправка
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                }
+            });
+        }
+
+        // Функция отправки сообщения
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            if (!input) return;
+
+            const message = input.value.trim();
+
+            if (message) {
+                console.log('📤 Отправка сообщения:', message);
+                socket.emit('send_message', {
+                    room: currentRoom,
+                    message: message
+                });
+                input.value = '';
+                input.style.height = 'auto';
+                socket.emit('stop_typing', { room: currentRoom });
+            }
+        }
+
+        // Функция загрузки файла
+        // Функция загрузки файла
+function uploadFile() {
+    const fileInput = document.getElementById('file-input');
+    if (!fileInput) {
+        console.error("❌ Поле загрузки файла не найдено");
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    if (!file) {
+        console.log("📭 Файл не выбран");
+        return;
+    }
+
+    console.log("📤 Загрузка файла:", file.name, "Размер:", file.size, "байт");
+
+    // Проверка типа файла
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mp3', 'pdf', 'doc', 'docx', 'txt', 'zip', 'rar'];
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (!allowedExtensions.includes(ext)) {
+        alert('Неподдерживаемый тип файла! Разрешены: ' + allowedExtensions.join(', '));
+        fileInput.value = '';
+        return;
+    }
+
+    // Проверка размера файла (50MB)
+    if (file.size > 50 * 1024 * 1024) {
+        alert('Файл слишком большой! Максимальный размер 50MB');
+        fileInput.value = '';
+        return;
+    }
+
+    // Проверяем, выбран ли чат
+    if (!currentRoom || !rooms[currentRoom]) {
+        alert('Сначала выберите чат!');
+        fileInput.value = '';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('room', currentRoom);
+
+    showUploadProgress(file.name);
+
+    fetch('/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Ошибка загрузки'); });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Файл загружен:', data.file_name);
+            hideUploadProgress();
+
+            // Очищаем input
+            fileInput.value = '';
+
+            // Показываем уведомление
+            const notification = document.createElement('div');
+            notification.className = 'upload-notification';
+            notification.textContent = '✅ Файл загружен';
+            notification.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #4CAF50;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 5px;
+                z-index: 1000;
+                animation: slideIn 0.3s ease-out;
+            `;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        } else {
+            alert('Ошибка загрузки: ' + (data.error || 'Неизвестная ошибка'));
+            hideUploadProgress();
+        }
+    })
+    .catch(error => {
+        console.error('❌ Ошибка:', error);
+        alert('Ошибка при загрузке файла: ' + error.message);
+        hideUploadProgress();
+    });
+}
+
+        // Показать прогресс загрузки
+        function showUploadProgress(fileName) {
+            hideUploadProgress();
+
+            const progressDiv = document.createElement('div');
+            progressDiv.className = 'upload-progress';
+            progressDiv.id = 'upload-progress';
+            progressDiv.innerHTML = `
+                <div style="font-weight: 600; margin-bottom: 5px;">📤 Загрузка файла</div>
+                <div style="font-size: 12px; color: #666; margin-bottom: 10px;">${fileName}</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="upload-progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="progress-text" id="upload-progress-text">0%</div>
+            `;
+            document.body.appendChild(progressDiv);
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 5;
+                if (progress <= 90) {
+                    document.getElementById('upload-progress-fill').style.width = progress + '%';
+                    document.getElementById('upload-progress-text').textContent = progress + '%';
+                }
+                if (progress >= 90) {
+                    clearInterval(interval);
+                }
+            }, 100);
+
+            window.uploadProgressInterval = interval;
+        }
+
+        // Скрыть прогресс загрузки
+        function hideUploadProgress() {
+            const progressDiv = document.getElementById('upload-progress');
+            if (progressDiv) {
+                progressDiv.remove();
+            }
+            if (window.uploadProgressInterval) {
+                clearInterval(window.uploadProgressInterval);
+            }
+        }
+
+        // Форматирование размера файла
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Функция добавления сообщения в чат
+        function addMessageToChat(data, room) {
+            if (room !== currentRoom) {
+                if (rooms[room]) {
+                    rooms[room].unread = (rooms[room].unread || 0) + 1;
+                    updateUI();
+                }
+                return;
+            }
+
+            const messagesDiv = document.getElementById('chat-messages');
+            if (!messagesDiv) return;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.id = `message-${data.id}`;
+
+            const isOwn = data.username === username;
+            messageDiv.classList.add(isOwn ? 'own' : (data.username === 'Система' ? 'system' : 'other'));
+
+            const animationEnabled = localStorage.getItem('animation') !== 'false';
+            if (!animationEnabled) {
+                messageDiv.style.animation = 'none';
+            }
+
+            const safeUsername = data.username.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            let contentHtml = '';
+
+            // Определяем тип сообщения
+            if (data.message_type === 'image') {
+                contentHtml = `
+                    <div class="message-header">
+                        <span class="message-username">${safeUsername}</span>
+                        <span class="message-time">${data.time || ''}</span>
+                    </div>
+                    <img src="/uploads/${data.file_path}" class="message-image" onclick="window.open('/uploads/${data.file_path}')" title="${data.file_name}">
+                    <div style="font-size: 11px; color: #666; margin-top: 2px;">${data.file_name} (${formatFileSize(data.file_size)})</div>
+                `;
+            } else if (data.message_type === 'video') {
+                contentHtml = `
+                    <div class="message-header">
+                        <span class="message-username">${safeUsername}</span>
+                        <span class="message-time">${data.time || ''}</span>
+                    </div>
+                    <video controls class="message-video">
+                        <source src="/uploads/${data.file_path}" type="video/${data.file_ext}">
+                        Ваш браузер не поддерживает видео
+                    </video>
+                    <div style="font-size: 11px; color: #666; margin-top: 2px;">${data.file_name}</div>
+                `;
+            } else if (data.message_type === 'audio') {
+                contentHtml = `
+                    <div class="message-header">
+                        <span class="message-username">${safeUsername}</span>
+                        <span class="message-time">${data.time || ''}</span>
+                    </div>
+                    <audio controls class="message-audio">
+                        <source src="/uploads/${data.file_path}" type="audio/${data.file_ext}">
+                        Ваш браузер не поддерживает аудио
+                    </audio>
+                    <div style="font-size: 11px; color: #666; margin-top: 2px;">${data.file_name}</div>
+                `;
+            } else if (data.message_type === 'file') {
+                contentHtml = `
+                    <div class="message-header">
+                        <span class="message-username">${safeUsername}</span>
+                        <span class="message-time">${data.time || ''}</span>
+                    </div>
+                    <div class="message-file" onclick="window.open('/uploads/${data.file_path}')">
+                        <span class="file-icon">📎</span>
+                        <div class="file-info">
+                            <div class="file-name">${data.file_name}</div>
+                            <div class="file-size">${formatFileSize(data.file_size)}</div>
+                        </div>
+                        <span class="file-download">⬇️</span>
+                    </div>
+                `;
+            } else {
+                // Текстовое сообщение
+                const safeMessage = data.message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                contentHtml = `
+                    <div class="message-header">
+                        <span class="message-username">${safeUsername}</span>
+                        <span class="message-time">${data.time || ''}</span>
+                    </div>
+                    <div class="message-text">${safeMessage}</div>
+                `;
+            }
+
+            let reactionsHtml = '<div class="message-reactions" id="reactions-' + data.id + '"></div>';
+
+            let addReactionBtn = '';
+            if (data.username !== 'Система') {
+                addReactionBtn = '<button class="add-reaction-btn" onclick="showReactionPicker(' + data.id + ')">➕</button>';
+            }
+
+            messageDiv.innerHTML = contentHtml + reactionsHtml + addReactionBtn;
+
+            messagesDiv.appendChild(messageDiv);
+
+            if (data.reactions) {
+                updateReactions(data.id, data.reactions);
+            }
+
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Функция обновления UI
+        function updateUI() {
+            Object.keys(rooms).forEach(roomId => {
+                const room = rooms[roomId];
+
+                const roomUsers = Object.values(onlineUsers).filter(u => u && u.room === roomId).length;
+                room.users = roomUsers;
+
+                const countElement = document.getElementById(`${roomId}-small-count`);
+                if (countElement) countElement.textContent = roomUsers;
+
+                const onlineIndicator = document.getElementById(`${roomId}-online-small`);
+                if (onlineIndicator) {
+                    onlineIndicator.style.display = roomUsers > 0 ? 'inline-block' : 'none';
+                }
+
+                const badgeElement = document.getElementById(`${roomId}-small-badge`);
+                if (badgeElement) {
+                    if (room.unread > 0) {
+                        badgeElement.textContent = room.unread;
+                        badgeElement.style.display = 'inline';
+                    } else {
+                        badgeElement.style.display = 'none';
+                    }
+                }
+
+                const previewElement = document.getElementById(`${roomId}-preview`);
+                if (previewElement && room.messages.length > 0) {
+                    const lastMsg = room.messages[room.messages.length - 1];
+                    previewElement.textContent = `${lastMsg.username}: ${lastMsg.message.substring(0, 30)}...`;
+                }
+            });
+
+            const currentRoomData = rooms[currentRoom];
+            if (currentRoomData) {
+                const usersElement = document.getElementById('current-chat-users');
+                if (usersElement) usersElement.innerHTML = `👥 ${currentRoomData.users || 0}`;
+            }
+
+            document.getElementById('online-count').textContent = Object.keys(onlineUsers).length;
+        }
+
+        // Функция обновления списка участников
+        function updateRoomUsers() {
+            const usersList = document.getElementById('room-users-list');
+            if (!usersList) return;
+
+            usersList.innerHTML = '';
+
+            const roomUsers = Object.entries(onlineUsers)
+                .filter(([_, data]) => data && data.room === currentRoom)
+                .sort(([a], [b]) => a.localeCompare(b));
+
+            if (roomUsers.length === 0) {
+                usersList.innerHTML = '<div class="no-users">Нет участников</div>';
+                return;
+            }
+
+            roomUsers.forEach(([user, data]) => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'user-item';
+
+                const timeCounter = document.createElement('span');
+                timeCounter.className = 'time-counter';
+                timeCounter.id = `timer-${user}-${Date.now()}`;
+
+                userDiv.innerHTML = `
+                    <div class="user-avatar-small">${user[0].toUpperCase()}</div>
+                    <div class="user-info">
+                        <div class="user-name">${user}</div>
+                        <div class="user-status online">В сети</div>
+                    </div>
+                `;
+                userDiv.querySelector('.user-info').appendChild(timeCounter);
+
+                usersList.appendChild(userDiv);
+
+                if (localStorage.getItem('timeCounters') !== 'false' && data && data.joinedAt) {
+                    startTimeCounter(timeCounter, data.joinedAt);
+                }
+            });
+        }
+
+        // Функция запуска счетчика времени
+        function startTimeCounter(element, joinTime) {
+            function update() {
+                const now = Date.now();
+                const diff = Math.floor((now - joinTime) / 1000);
+                const minutes = Math.floor(diff / 60);
+                const seconds = diff % 60;
+                element.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+            update();
+            const interval = setInterval(update, 1000);
+            if (element.id) {
+                timeCounterIntervals[element.id] = interval;
+            }
+        }
+
+        // Функция обновления темы
+        function updateTopicDisplay() {
+            const topicDisplay = document.getElementById('room-topic-display');
+            const topicText = document.getElementById('topic-text');
+            const currentTopic = roomTopics[currentRoom];
+
+            if (topicDisplay && topicText) {
+                if (currentTopic) {
+                    topicText.textContent = currentTopic;
+                    topicDisplay.style.display = 'block';
+                } else {
+                    topicDisplay.style.display = 'none';
+                }
+            }
+        }
+
+        // Функции для реакций
+        function showReactionPicker(messageId) {
+            currentMessageForReaction = messageId;
+            const picker = document.getElementById('reaction-picker');
+            const btn = event.target;
+            const rect = btn.getBoundingClientRect();
+
+            picker.style.display = 'block';
+            picker.style.top = (rect.top - 50) + 'px';
+            picker.style.left = rect.left + 'px';
+
+            setTimeout(() => {
+                document.addEventListener('click', closeReactionPicker);
+            }, 100);
+        }
+
+        function closeReactionPicker(e) {
+            const picker = document.getElementById('reaction-picker');
+            if (!picker.contains(e.target)) {
+                picker.style.display = 'none';
+                document.removeEventListener('click', closeReactionPicker);
+            }
+        }
+
+        function addReaction(emoji) {
+            if (currentMessageForReaction) {
+                socket.emit('add_reaction', {
+                    message_id: currentMessageForReaction,
+                    emoji: emoji
+                });
+                document.getElementById('reaction-picker').style.display = 'none';
+                currentMessageForReaction = null;
+            }
+        }
+
+        function updateReactions(messageId, reactions) {
+            const container = document.getElementById(`reactions-${messageId}`);
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            Object.entries(reactions).forEach(([emoji, users]) => {
+                const badge = document.createElement('span');
+                badge.className = 'reaction-badge';
+                badge.textContent = `${emoji} ${users.length}`;
+                badge.title = users.join(', ');
+                badge.onclick = () => {
+                    socket.emit('add_reaction', {
+                        message_id: messageId,
+                        emoji: emoji
+                    });
+                };
+                container.appendChild(badge);
+            });
+        }
+
+        // Функции для модальных окон
+        function openCreateRoomModal() {
+            document.getElementById('create-room-modal').style.display = 'flex';
+        }
+
+        function closeCreateRoomModal() {
+            document.getElementById('create-room-modal').style.display = 'none';
+            document.getElementById('new-room-name').value = '';
+            document.getElementById('new-room-emoji').value = '';
+            document.getElementById('new-room-topic').value = '';
+            document.getElementById('new-room-description').value = '';
+        }
+
+            // Функция создания нового чата
+function createNewRoom() {
+    const nameInput = document.getElementById('new-room-name');
+    const emojiInput = document.getElementById('new-room-emoji');
+    const topicInput = document.getElementById('new-room-topic');
+    const descriptionInput = document.getElementById('new-room-description');
+
+    if (!nameInput) {
+        console.error("❌ Поле названия чата не найдено");
+        return;
+    }
+
+    const name = nameInput.value.trim();
+    const emoji = emojiInput ? emojiInput.value.trim() || '💬' : '💬';
+    const topic = topicInput ? topicInput.value.trim() : '';
+    const description = descriptionInput ? descriptionInput.value.trim() : '';
+
+    if (!name) {
+        alert('Введите название чата');
+        return;
+    }
+
+    console.log("📤 Отправка запроса на создание чата:", { name, emoji, topic, description });
+
+    // Показываем индикатор загрузки
+    const createBtn = document.querySelector('#create-room-modal .btn-primary');
+    const originalText = createBtn.textContent;
+    createBtn.textContent = '⏳ Создание...';
+    createBtn.disabled = true;
+
+    fetch('/api/rooms', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            name: name,
+            display_name: name,
+            emoji: emoji,
+            topic: topic,
+            description: description
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Ошибка сервера'); });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log("✅ Ответ от сервера:", data);
+        if (data.success) {
+            alert('Чат успешно создан!');
+            closeCreateRoomModal();
+            location.reload(); // Перезагружаем страницу для отображения нового чата
+        } else {
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    })
+    .catch(error => {
+        console.error('❌ Ошибка:', error);
+        alert('Ошибка при создании чата: ' + error.message);
+    })
+    .finally(() => {
+        // Восстанавливаем кнопку
+        createBtn.textContent = originalText;
+        createBtn.disabled = false;
+    });
+}
+
+        function showEditRoomModal() {
+            const room = rooms[currentRoom];
+            if (!room) return;
+
+            document.getElementById('edit-room-name').value = room.displayName;
+            document.getElementById('edit-room-emoji').value = room.emoji;
+            document.getElementById('edit-room-topic').value = roomTopics[currentRoom] || '';
+            document.getElementById('edit-room-description').value = room.description || '';
+            document.getElementById('edit-room-modal').style.display = 'flex';
+        }
+
+        function closeEditRoomModal() {
+            document.getElementById('edit-room-modal').style.display = 'none';
+        }
+
+        function saveRoomChanges() {
+            const newName = document.getElementById('edit-room-name').value.trim();
+            const newEmoji = document.getElementById('edit-room-emoji').value.trim();
+            const newTopic = document.getElementById('edit-room-topic').value.trim();
+            const newDescription = document.getElementById('edit-room-description').value.trim();
+
+            fetch(`/api/room/${currentRoom}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name: newName,
+                    display_name: newName,
+                    emoji: newEmoji,
+                    topic: newTopic,
+                    description: newDescription
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    closeEditRoomModal();
+                    location.reload();
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            });
+        }
+
+        function deleteRoom() {
+            if (confirm('Вы уверены, что хотите удалить этот чат?')) {
+                fetch(`/api/room/${currentRoom}`, {
+                    method: 'DELETE'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/chat';
+                    }
+                });
+            }
+        }
+
+        // Функции для статистики
+        function updateStats() {
+            fetch('/api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('total-users').textContent = data.total_users;
+                    document.getElementById('online-users').textContent = data.online_users;
+                    document.getElementById('total-messages').textContent = data.total_messages;
+                    document.getElementById('active-rooms').textContent = data.total_rooms;
+
+                    const recentDiv = document.getElementById('recent-messages');
+                    recentDiv.innerHTML = '';
+
+                    data.recent_messages.forEach(msg => {
+                        const msgDiv = document.createElement('div');
+                        msgDiv.className = 'message-stat';
+                        msgDiv.innerHTML = `
+                            <div class="message-stat-header">
+                                <span class="message-stat-username">${msg.username}</span>
+                                <span class="message-stat-time">${msg.time} ${msg.date}</span>
+                            </div>
+                            <div class="message-stat-text">${msg.text}</div>
+                            <div class="message-stat-room">📌 ${msg.room}</div>
+                        `;
+                        recentDiv.appendChild(msgDiv);
+                    });
+                });
+        }
+
+        // Загрузка всех пользователей
+        function loadAllUsers() {
+            const grid = document.getElementById('users-grid');
+            if (!grid) return;
+
+            grid.innerHTML = '';
+
+            const sortedUsers = Object.keys(onlineUsers).sort();
+
+            if (sortedUsers.length === 0) {
+                grid.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Нет пользователей онлайн</div>';
+                return;
+            }
+
+            sortedUsers.forEach(user => {
+                const userData = onlineUsers[user];
+                const roomData = rooms[userData?.room] || { emoji: '💬', displayName: userData?.room || 'общий' };
+
+                const card = document.createElement('div');
+                card.className = 'user-card';
+                card.innerHTML = `
+                    <div class="user-avatar-large">${user[0].toUpperCase()}</div>
+                    <div class="user-info">
+                        <div class="user-name">${user}</div>
+                        <div class="user-room">${roomData.emoji} ${roomData.displayName}</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function toggleSetting(setting, value) {
+            console.log(`Настройка ${setting}: ${value}`);
+            localStorage.setItem(setting, value);
+
+            if (setting === 'timeCounters' && !value) {
+                Object.values(timeCounterIntervals).forEach(clearInterval);
+                timeCounterIntervals = {};
+            }
+        }
+
+        // Сокет события
+        socket.on('connect', function() {
+            console.log('✅ Подключено к серверу');
+
+            Object.keys(rooms).forEach(room => {
+                socket.emit('join', { room: room });
+            });
+        });
+
+        socket.on('receive_message', function(data) {
+            if (!rooms[data.room]) {
+                rooms[data.room] = {
+                    name: data.room,
+                    displayName: data.room,
+                    emoji: '💬',
+                    messages: [],
+                    users: 0,
+                    unread: 0
+                };
+            }
+
+            rooms[data.room].messages.push(data);
+            addMessageToChat(data, data.room);
+            updateUI();
+
+            if (localStorage.getItem('sound') === 'true' && data.username !== username) {
+                // Здесь можно добавить звук
+            }
+
+            if (localStorage.getItem('notifications') === 'true' &&
+                data.username !== username &&
+                document.hidden) {
+                if (Notification.permission === 'granted') {
+                    new Notification(`Новое сообщение от ${data.username}`, {
+                        body: data.message,
+                        icon: '/static/favicon.ico'
+                    });
+                }
+            }
+        });
+
+        socket.on('user_joined', function(data) {
+            onlineUsers[data.username] = {
+                room: data.room,
+                joinedAt: data.joined_at
+            };
+
+            if (rooms[data.room]) {
+                rooms[data.room].users = data.users_count;
+            }
+
+            updateUI();
+            updateRoomsList();
+
+            if (data.room === currentRoom) {
+                updateRoomUsers();
+                const msg = {
+                    id: 'system-' + Date.now(),
+                    username: 'Система',
+                    message: `👋 ${data.username} присоединился к чату`,
+                    time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                };
+                addMessageToChat(msg, currentRoom);
+            }
+        });
+
+        socket.on('user_left', function(data) {
+            delete onlineUsers[data.username];
+
+            if (rooms[data.room]) {
+                rooms[data.room].users = data.users_count;
+            }
+
+            updateUI();
+            updateRoomsList();
+
+            if (data.room === currentRoom) {
+                updateRoomUsers();
+                const msg = {
+                    id: 'system-' + Date.now(),
+                    username: 'Система',
+                    message: `👋 ${data.username} покинул чат`,
+                    time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                };
+                addMessageToChat(msg, currentRoom);
+            }
+        });
+
+        socket.on('reaction_update', function(data) {
+            const msg = rooms[currentRoom]?.messages.find(m => m.id === data.message_id);
+            if (msg) {
+                msg.reactions = data.reactions;
+            }
+            updateReactions(data.message_id, data.reactions);
+        });
+
+        socket.on('room_updated', function(data) {
+            location.reload();
+        });
+
+        socket.on('room_created', function(room) {
+            location.reload();
+        });
+
+        socket.on('room_deleted', function(data) {
+            if (currentRoom === data.name) {
+                window.location.href = '/chat';
+            } else {
+                location.reload();
+            }
+        });
+
+        socket.on('typing', function(data) {
+            if (data.room === currentRoom && data.username !== username) {
+                const typingDiv = document.getElementById('typing-users');
+                if (typingDiv) typingDiv.textContent = `${data.username} печатает...`;
+            }
+        });
+
+        socket.on('stop_typing', function(data) {
+            if (data.room === currentRoom) {
+                const typingDiv = document.getElementById('typing-users');
+                if (typingDiv) typingDiv.textContent = '';
+            }
+        });
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("📄 Страница загружена");
+
+            if (Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+
+            // Загружаем настройки
+            const soundEnabled = localStorage.getItem('sound') === 'true';
+            const notificationsEnabled = localStorage.getItem('notifications') !== 'false';
+            const animationEnabled = localStorage.getItem('animation') !== 'false';
+            const timeCountersEnabled = localStorage.getItem('timeCounters') !== 'false';
+
+            const soundCheckbox = document.getElementById('sound-notifications');
+            if (soundCheckbox) soundCheckbox.checked = soundEnabled;
+
+            const notificationsCheckbox = document.getElementById('message-notifications');
+            if (notificationsCheckbox) notificationsCheckbox.checked = notificationsEnabled;
+
+            const animationCheckbox = document.getElementById('message-animation');
+            if (animationCheckbox) animationCheckbox.checked = animationEnabled;
+
+            const timeCountersCheckbox = document.getElementById('show-time-counters');
+            if (timeCountersCheckbox) timeCountersCheckbox.checked = timeCountersEnabled;
+
+            updateRoomsList();
+
+            if (Object.keys(rooms).length > 0) {
+                if (currentRoom && rooms[currentRoom]) {
+                    loadRoomMessages(currentRoom);
+                    document.querySelector(`.sidebar-room-item[data-room="${currentRoom}"]`)?.classList.add('active');
+                } else {
+                    const firstRoom = Object.keys(rooms)[0];
+                    if (firstRoom) {
+                        switchRoom(firstRoom);
+                    }
+                }
+            }
+
+            updateUI();
+        });
+
+        // Закрытие модальных окон по клику вне
+        window.onclick = function(event) {
+            const createModal = document.getElementById('create-room-modal');
+            const editModal = document.getElementById('edit-room-modal');
+            if (event.target === createModal) {
+                createModal.style.display = 'none';
+            }
+            if (event.target === editModal) {
+                editModal.style.display = 'none';
+            }
+        };
+
+        console.log("🏁 Скрипт инициализирован");
+    </script>
+</body>
+</html>
